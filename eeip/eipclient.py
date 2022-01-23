@@ -1,9 +1,9 @@
-from eeip import encapsulation
+from encapsulation import *
 import threading
 import socket
 import struct
 import traceback
-from eeip import cip
+from cip import *
 from enum import Enum, IntEnum
 import random
 import time, datetime
@@ -74,8 +74,9 @@ class EEIPClient:
         """
         if self.__session_handle != 0:
             return self.__session_handle
-        __encapsulation = encapsulation.Encapsulation()
-        __encapsulation.command = encapsulation.CommandsEnum.REGISTER_SESSION
+        #encapsulation = Encapsulation()
+        __encapsulation = Encapsulation() 
+        __encapsulation.command = CommandsEnum.REGISTER_SESSION
         __encapsulation.length = 4
         __encapsulation.command_specific_data.append(1)     #Protocol Version (Should be set to 1)
         __encapsulation.command_specific_data.append(0)
@@ -107,8 +108,8 @@ class EEIPClient:
         """
         Sends an UnRegisterSession command to a target to terminate session
         """
-        __encapsulation = encapsulation.Encapsulation()
-        __encapsulation.command = encapsulation.CommandsEnum.UNREGISTER_SESSIOM
+        __encapsulation = Encapsulation()
+        __encapsulation.command = CommandsEnum.UNREGISTER_SESSIOM
         __encapsulation.length = 0
         __encapsulation.session_handle = self.__session_handle
         self.__tcpClient_socket.send(bytearray(__encapsulation.to_bytes()))
@@ -157,9 +158,9 @@ class EEIPClient:
 
         #----------------CIP Command "Get Attribute Single"
         if attribute_id is not None:
-            common_packet_format.data.append(int(cip.CIPCommonServices.GET_ATTRIBUTE_SINGLE))
+            common_packet_format.data.append(int(CIPCommonServices.GET_ATTRIBUTE_SINGLE))
         else:
-            common_packet_format.data.append(int(cip.CIPCommonServices.GET_ATTRIBUTES_ALL))
+            common_packet_format.data.append(int(CIPCommonServices.GET_ATTRIBUTES_ALL))
 
         #---------------CIP Command "Get Attribute Single"
 
@@ -193,7 +194,7 @@ class EEIPClient:
         #--------------------------BEGIN Error?
         if len(self.__receivedata) > 41:
             if self.__receivedata[42] != 0: #Exception codes see "Table B-1.1 CIP General Status Codes"
-                raise cip.CIPException(cip.get_status_code(self.__receivedata[42]))
+                raise CIPException(get_status_code(self.__receivedata[42]))
         #--------------------------END Error?
 
         returnvalue = list()
@@ -252,7 +253,7 @@ class EEIPClient:
         common_packet_format.data_length = 2 + len(requested_path) + len(value)
 
         # ----------------CIP Command "Get Attribute Single"
-        common_packet_format.data.append(int(cip.CIPCommonServices.SET_ATTRIBUTE_SINGLE))
+        common_packet_format.data.append(int(CIPCommonServices.SET_ATTRIBUTE_SINGLE))
 
         # ----------------Requested Path size (number of 16 bit words)
         common_packet_format.data.append(int(len(requested_path) / 2) & 0xFF)
@@ -277,7 +278,7 @@ class EEIPClient:
         # --------------------------BEGIN Error?
         if len(self.__receivedata) > 41:
             if self.__receivedata[42] != 0:  # Exception codes see "Table B-1.1 CIP General Status Codes"
-                raise cip.CIPException(cip.get_status_code(self.__receivedata[42]))
+                raise CIPException(get_status_code(self.__receivedata[42]))
         # --------------------------END Error?
 
         returnvalue = list()
@@ -309,9 +310,9 @@ class EEIPClient:
 
         length_offset = 5 + (0 if self.__t_o_connection_type == ConnectionType.NULL else 2) + (0 if self.__o_t_connection_type == ConnectionType.NULL else 2)
 
-        __encapsulation = encapsulation.Encapsulation()
+        __encapsulation = Encapsulation()
         __encapsulation.session_handle = self.__session_handle
-        __encapsulation.command = encapsulation.CommandsEnum.SEND_RRDATA
+        __encapsulation.command = CommandsEnum.SEND_RRDATA
         #!!!!!!!!-----length field at the end
 
         # ---------------Interface Handle CIP
@@ -327,7 +328,7 @@ class EEIPClient:
         # ----------------Timeout
 
         # Common Packet Format (Table 2-6.1)
-        common_packet_format = encapsulation.CommonPacketFormat()
+        common_packet_format = CommonPacketFormat()
 
         common_packet_format.data_length = 41 + length_offset
         if large_forward_open:
@@ -471,7 +472,7 @@ class EEIPClient:
             common_packet_format.data.append(self.__t_o_instance_id)
 
         # AddSocket Addrress Item O->T
-        common_packet_format.socketaddr_info_o_t = encapsulation.SocketAddress()
+        common_packet_format.socketaddr_info_o_t = SocketAddress()
         common_packet_format.socketaddr_info_o_t.sin_port = self.__originator_udp_port
         common_packet_format.socketaddr_info_o_t.sin_family = 2
 
@@ -502,11 +503,11 @@ class EEIPClient:
                 if self.__receivedata[42] == 1:
                     if self.__receivedata[43] == 0:
 
-                        raise cip.CIPException(("Connection failure, General Status Code: " + str(self.__receivedata[42])))
+                        raise CIPException(("Connection failure, General Status Code: " + str(self.__receivedata[42])))
                     else: #TODO Error Code from Connection Manager Object
-                        raise cip.CIPException(("Connection failure, General Status Code: " + str(self.__receivedata[42]) + " Additional Status Code: " + str(self.__receivedata[44] | (self.__receivedata[45] << 8))))
+                        raise CIPException(("Connection failure, General Status Code: " + str(self.__receivedata[42]) + " Additional Status Code: " + str(self.__receivedata[44] | (self.__receivedata[45] << 8))))
                 else:
-                    raise cip.CIPException(cip.get_status_code(self.__receivedata[42]))
+                    raise CIPException(get_status_code(self.__receivedata[42]))
         # --------------------------END Error?
         item_count = self.__receivedata[30] + (self.__receivedata[31] << 8)
         length_unconnected_data_item = self.__receivedata[38] + (self.__receivedata[39] << 8)
@@ -516,11 +517,11 @@ class EEIPClient:
 
         #Is there a SocketInfoItem?
         number_of_current_item = 0
-        socket_info_item = encapsulation.SocketAddress()
+        socket_info_item = SocketAddress()
         while item_count > 2:
             type_id = self.__receivedata[40 + length_unconnected_data_item + 20 * number_of_current_item] + (self.__receivedata[40 + length_unconnected_data_item + 21 * number_of_current_item] << 8)
             if type_id == 0x8001:
-                socket_info_item = encapsulation.SocketAddress()
+                socket_info_item = SocketAddress()
                 socket_info_item.sin_address = self.__receivedata[40 + length_unconnected_data_item + 11 + 20 * number_of_current_item] + (self.__receivedata[40 + length_unconnected_data_item + 10 + 20 * number_of_current_item] << 8) + (self.__receivedata[40 + length_unconnected_data_item + 9 + 20 * number_of_current_item] << 16) + (self.__receivedata[40 + length_unconnected_data_item + 8 + 20 * number_of_current_item] << 24)
                 socket_info_item.sin_port = self.__receivedata[40 + length_unconnected_data_item + 7 + 20 * number_of_current_item] + (self.__receivedata[40 + length_unconnected_data_item + 6 + 20 * number_of_current_item] << 8)
                 if self.__t_o_connection_type == ConnectionType.MULTICAST:
@@ -551,9 +552,9 @@ class EEIPClient:
         """
         length_offset = 5 + (0 if self.__t_o_connection_type == ConnectionType.NULL else 2) + (0 if self.__o_t_connection_type == ConnectionType.NULL else 2)
 
-        __encapsulation = encapsulation.Encapsulation()
+        __encapsulation = Encapsulation()
         __encapsulation.session_handle = self.__session_handle
-        __encapsulation.command = encapsulation.CommandsEnum.SEND_RRDATA
+        __encapsulation.command = CommandsEnum.SEND_RRDATA
         __encapsulation.length = 16 + 17 + length_offset
 
         # ---------------Interface Handle CIP
@@ -569,7 +570,7 @@ class EEIPClient:
         # ----------------Timeout
 
         # Common Packet Format (Table 2-6.1)
-        common_packet_format = encapsulation.CommonPacketFormat()
+        common_packet_format = CommonPacketFormat()
         common_packet_format.item_count = 0x02
 
         common_packet_format.address_item = 0
@@ -659,7 +660,7 @@ class EEIPClient:
         # --------------------------BEGIN Error?
         if len(self.__receivedata) > 41:
             if self.__receivedata[42] != 0:  # Exception codes see "Table B-1.1 CIP General Status Codes"
-                raise cip.CIPException(cip.get_status_code(self.__receivedata[42]))
+                raise CIPException(get_status_code(self.__receivedata[42]))
         # --------------------------END Error?
 
         self.__stoplistening_udp = True
